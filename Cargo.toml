@@ -6,6 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+derivative = "2.2.0"
 serde = { version = "1.0.193", features = ["derive"] }
 serde_json = { version = "1.0.108", features = ["preserve_order"] }
 thiserror = "1.0.50"
@@ -14,6 +15,14 @@ thiserror = "1.0.50"
 name = "cooking"
 path = "src/lib.rs"
 
-[[bin]]
-name = "cooking"
-path = "src/cli.rs"
+[[bench]]
+name = "multi"
+harness = false
+
+[[bench]]
+name = "single"
+harness = false
+
+# [[bin]]
+# name = "cooking"
+# path = "src/cli.rs"

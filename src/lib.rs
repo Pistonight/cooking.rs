@@ -170,31 +170,28 @@ impl RecipeBase {
                 println!("init name {} id {} ", self.name, self.id);
                 println!("strict mode");
             }
-            let mut v: Vec<String> = items.iter().map(|x| x.to_string()).collect();
-            v.sort_unstable();
-            v.dedup();
-            if v.len() != 1 {
-                if verbose {
-                    println!("Number of unique items != 1");
-                    println!("     items: {:?}", v);
-                }
-                return false;
-            }
+            // let mut v: Vec<String> = items.iter().map(|x| x.to_string()).collect();
+            // v.sort_unstable();
+            // v.dedup();
+            // if v.len() != 1 {
+            //     if verbose {
+            //         println!("Number of unique items != 1");
+            //         println!("     items: {:?}", v);
+            //     }
+            //     return false;
+            // }
         }
-        let mut items_t = items.to_vec().clone();
-        let mut tags_t = tags.to_vec().clone();
+        let mut items_t = items.to_vec();
+        let mut tags_t = tags.to_vec();
         if verbose {
             println!("init name {} id {} ", self.name, self.id);
             println!("     items: {:?}", items_t);
             println!("      tags: {:?}", tags_t);
             println!("    actors: {:?}", self.actors);
         }
-        let out = match self.matches_actors(items_t, tags_t, strict, verbose) {
-            Some(x) => x,
-            None => return false,
+        if !self.matches_actors(&mut items_t, &mut tags_t, strict, verbose) {
+            return false;
         };
-        items_t = out.0;
-        tags_t = out.1;
 
         if verbose {
             println!("");
@@ -202,15 +199,13 @@ impl RecipeBase {
             println!("      tags: {:?}", tags_t);
             println!("recipe tags: {:?}", self.tags);
         }
-        let items_t = self.matches_tags(items_t, tags_t, strict, verbose);
+        if !self.matches_tags(&mut items_t, &mut tags_t, strict, verbose) {
+            return false;
+        }
         if verbose {
             println!("");
             println!("     items: {:?}", items_t);
         }
-        let items_t = match items_t {
-            Some(x) => x,
-            None => return false,
-        };
         if verbose {
             println!("done: {} {:?}", self.name, items_t);
         }
@@ -221,26 +216,24 @@ impl RecipeBase {
     }
     fn matches_actors(
         &self,
-        items_t: Vec<String>,
-        tags_t: Vec<String>,
+        items_t: &mut Vec<String>,
+        tags_t: &mut Vec<String>,
         strict: bool,
         verbose: bool,
-    ) -> Option<(Vec<String>, Vec<String>)> {
-        let mut items_t = items_t;
-        let mut tags_t = tags_t;
+    ) -> bool {
         if strict {
             if self.actors.len() == 0 {
                 if verbose {
                     println!("No actors, returning current values");
                 }
-                return Some((items_t, tags_t));
+                return true;
             }
             let v = inter(&self.actors.id(0), &items_t);
             if v.len() == 0 {
                 if verbose {
                     println!("No matching actors, returning empty");
                 }
-                return None;
+                return false;
             }
             if verbose {
                 println!("Found matching actors, removing from items {:?}", v);
@@ -258,7 +251,7 @@ impl RecipeBase {
                     items_t, tags_t
                 );
             }
-            return Some((items_t, tags_t));
+            return true;
         }
         let n = self.actors.len();
         if verbose {
@@ -270,7 +263,7 @@ impl RecipeBase {
             }
             let v = inter(self.actors.id(i), &items_t);
             if v.len() == 0 {
-                return None;
+                return false;
             }
             let mut k = items_t.iter().position(|x| x == &v[0]);
             while let Some(k_value) = k {
@@ -279,27 +272,25 @@ impl RecipeBase {
                 k = items_t.iter().position(|x| x == &v[0]);
             }
         }
-        return Some((items_t, tags_t));
+        return true;
     }
     fn matches_tags(
         &self,
-        items_t: Vec<String>,
-        tags_t: Vec<String>,
+        items_t: &mut Vec<String>,
+        tags_t: &mut Vec<String>,
         strict: bool,
         verbose: bool,
-    ) -> Option<Vec<String>> {
-        let mut items_t = items_t;
-        let mut tags_t = tags_t;
+    ) -> bool {
         if verbose {
             println!("    item tags: {:?}", tags_t);
         }
         if strict {
             if self.tags.len() == 0 {
-                return Some(items_t);
+                return true;
             }
             let v = inter(self.tags.id(0), &tags_t);
             if v.len() == 0 {
-                return None;
+                return false;
             }
             let mut k = tags_t.iter().position(|x| x == &v[0]);
             while let Some(k_value) = k {
@@ -307,14 +298,14 @@ impl RecipeBase {
                 tags_t.remove(k_value);
                 k = tags_t.iter().position(|x| x == &v[0]);
             }
-            return Some(items_t);
+            return true;
         }
 
         let tags = match &self.tags {
             AVec::Two(v) => v,
             AVec::One(v) => {
                 if v.len() == 0 {
-                    return Some(items_t);
+                    return true;
                 } else {
                     panic!(":( {:?}", self)
                 }
@@ -332,7 +323,10 @@ impl RecipeBase {
                     break;
                 }
             }
-            let k_value = k?;
+            let k_value = match k {
+                Some(x) => x,
+                None => return false,
+            };
 
             let item = items_t[k_value].clone();
             while let Some(k_value) = k {
@@ -341,7 +335,7 @@ impl RecipeBase {
                 k = items_t.iter().position(|x| x == &item);
             }
         }
-        Some(items_t)
+        true
     }
 }
 
@@ -547,16 +541,20 @@ impl Cook {
             .collect();
         let n = 125;
         //let i = N;
-        for recipe in &self.recipes[n..] {
-            if recipe.matches(&iname, &tags_t, true, self.verbose) {
-                return Ok(recipe.clone());
+        let is_single = iname.iter().cloned().collect::<HashSet<_>>().len() == 1;
+        if is_single {
+            for recipe in &self.recipes[n..] {
+                if recipe.matches(&iname, &tags_t, true, self.verbose) {
+                    return Ok(recipe.clone());
+                }
             }
-        }
+        } 
         for recipe in &self.recipes[..n] {
             if recipe.matches(&iname, &tags_t, false, self.verbose) {
                 return Ok(recipe.clone());
             }
         }
+
         Ok(self.dubious.clone())
     }
     pub fn get_effect(&self, name: Modifier) -> Result<&Effect, CookError> {

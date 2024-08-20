@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet};
 use thiserror::Error;
 
 mod modifier;
+pub use modifier::Modifier;
 mod wmc;
 use modifier::*;
 use wmc::*;

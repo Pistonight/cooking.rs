@@ -589,12 +589,21 @@ impl Cook {
                     println!("effect {} {}", val.effect, eff.base_time);
                 }
                 time += eff.base_time;
-            }
+                
+            } 
+            // PISTON: ingredient times are not added if effect is Hearty, Enduring, or Energizing
+            if val.effect != Modifier::LifeMaxUp
+            && val.effect != Modifier::ExGutsMaxUp
+            && val.effect != Modifier::GutsRecover
+        {
             if val.roast_item {
                 time += 30;
             } else {
                 time += val.time / 30;
             }
+        }
+
+            
             if has_effect {
                 potency += val.potency;
             }
